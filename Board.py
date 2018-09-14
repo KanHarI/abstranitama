@@ -51,7 +51,13 @@ class Board:
 
 	def is_legal_mov(self, src, dst):
 		src,dst = tuple(src),tuple(dst)
-		return (self.is_in_board(src) and self.is_in_board(dst) and (self._map[src] & 1 == 1) and (self._map[dst] & 1 == 0))
+		return (
+			self.is_in_board(src) and
+			self.is_in_board(dst) and
+			(self._map[src] & SOLDIER_FLAG) and
+				(self._map[dst] & SOLDIER_FLAG == 0 or
+				(self._map[dst] & P2_FLAG) != (self._map[src] & P2_FLAG)
+			))
 
 	def mov(self, src, dst):
 		src,dst = tuple(src),tuple(dst)
@@ -59,7 +65,17 @@ class Board:
 			raise RuntimeError("Bad move!")
 		player = 1 if (self._map[src] & P2_FLAG) else 0
 		tier = self._map[src] & (SOLDIER_FLAG + KING_FLAG)
-		
+
+		if tier & KING_FLAG:
+			self._items["p" + str(1+player) + "k"].remove(src)
+			self._items["p" + str(1+player) + "k"].append(dst)
+		self._items["p" + str(1+player) + "s"].remove(src)
+		self._items["p" + str(1+player) + "s"].append(dst)
+		if dst in self._items["p" + str(2-player) + "s"]:
+			self._items["p" + str(2-player) + "s"].remove(dst)
+		if dst in self._items["p" + str(2-player) + "k"]:
+			self._items["p" + str(2-player) + "k"].remove(dst)
+
 		self._map[src] -= tier
 		self._map[src] &= ~P2_FLAG
 
@@ -67,9 +83,13 @@ class Board:
 		self._map[dst] &= ~P2_FLAG
 		self._map[dst] |= player*P2_FLAG
 
-	def get_filtered_map(self, flag):
+	def get_filtered_map(self, flag, player=0):
 		assert flag in [SOLDIER_FLAG, KING_FLAG, TEMPLE_FLAG]
 		if flag == TEMPLE_FLAG:
-			return (self._map & flag) * np.sign(P2_TEMPLE_FLAG/2 - (self._map & P2_TEMPLE_FLAG))
-		return (self._map & flag) * np.sign(P2_FLAG/2 - (self._map & P2_FLAG))
+			res = (self._map & flag) * np.sign(P2_TEMPLE_FLAG/2 - (self._map & P2_TEMPLE_FLAG))
+		else:
+			res = (self._map & flag) * np.sign(P2_FLAG/2 - (self._map & P2_FLAG))
+		if player:
+			res = np.flip(res)*(-1)
+		return res
 
